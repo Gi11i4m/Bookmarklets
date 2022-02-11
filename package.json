@@ -1,0 +1,10 @@
+{
+  "name": "bookmarklets",
+  "private": true,
+  "repository": "git@github.com:Gi11i4m/bookmarklets.git",
+  "author": "Gilliam <gi11i4m@gmail.com>",
+  "workspaces": [
+    "youtube"
+  ],
+  "packageManager": "yarn@3.1.1"
+}
