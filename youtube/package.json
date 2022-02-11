@@ -1,0 +1,12 @@
+{
+  "name": "youtube",
+  "scripts": {
+    "build:mark-subscriptions-as-read": "echo \"javascript: $(uglifyjs mark-subscriptions-as-read.js)\" | clipboard && echo 'Bookmarklet code copied to clipboard!'"
+  },
+  "packageManager": "yarn@3.1.1",
+  "devDependencies": {
+    "clipboard-cli": "^3.0.0",
+    "minify": "^8.0.3",
+    "uglify-js": "^3.15.1"
+  }
+}
