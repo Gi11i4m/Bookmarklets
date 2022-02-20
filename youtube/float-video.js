@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YouTube mark all as read
+// @name         YouTube float video
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  Mark all subscriptions as read in one click
+// @description  Float YouTube videos on scroll
 // @author       Gi11i4m
 // @match        http://www.youtube.com/*
 // @match        https://www.youtube.com/*
@@ -12,36 +12,7 @@
 // @grant        none
 // ==/UserScript==
 
-function isMenuOpenOnLoad() {
-  return window.innerWidth > 1329;
-}
-
-async function addMenuButtonClickHandler(handler) {
-  const menuButton = await waitForIt(
-    () => document.querySelectorAll("#guide-button")[0]
-  );
-  return menuButton.addEventListener("click", handler());
-}
-
-async function addMarkAsReadButton() {
-  await waitForIt(() => document.querySelectorAll("#guide-section-title")[1]);
-  const button = document.createElement("tp-yt-paper-button");
-  button.setAttribute("id", "button");
-  button.setAttribute("role", "button");
-  button.className = "style-scope ytd-button-renderer size-default";
-  const buttonText = document.createElement("yt-formatted-string");
-  buttonText.className = "style-scope ytd-button-renderer size-default";
-  buttonText.style.color = "white";
-  button.appendChild(buttonText);
-  button.onclick = async () => {
-    await openAllSubscriptions();
-    await readAllUnreadSubscriptions();
-  };
-  document
-    .querySelectorAll("#guide-section-title")[1]
-    .parentElement.insertAdjacentElement("beforeend", button);
-  buttonText.innerHTML = "Mark all as read";
-}
+const SCROLL_TRESHOLD = 10;
 
 function waitForIt(it) {
   return new Promise((resolve) => {
@@ -55,35 +26,63 @@ function waitForIt(it) {
   });
 }
 
-async function openAllSubscriptions() {
-  document.querySelectorAll("#expander-item")[1].click();
-  waitForIt(
-    () => document.querySelectorAll("ytd-guide-entry-renderer").length > 35
-  );
+async function getPlayer() {
+  return waitForIt(() => document.querySelector("ytd-player#ytd-player"));
 }
 
-async function readAllUnreadSubscriptions() {
-  // TODO: limit to subscriptions (will now find any item with a newness dot)
-  const UNREAD_SELECTOR = "ytd-guide-entry-renderer[line-end-style=dot]";
-  const unreadLinks = Array.from(
-    document.querySelectorAll(`${UNREAD_SELECTOR} > a`).values()
-  ).map((el) => window.origin + el.getAttribute("href"));
-  const newnessDots = Array.from(
-    document.querySelectorAll(`${UNREAD_SELECTOR} #newness-dot`).values()
-  );
-  await Promise.all(unreadLinks.map((link) => fetch(link)));
-  newnessDots.forEach((el) => (el.style.display = "none"));
+function getDimensions(element) {
+  return {
+    width: element.clientWidth,
+    height: element.clientHeight,
+  };
+}
+
+function isSmallerThanHalfOfScreenHeight(element) {
+  return element.clientHeight < window.innerHeight / 2;
+}
+
+function float(element) {
+  const dimensions = getDimensions(element);
+  element.style.width = dimensions.width + "px";
+  element.style.height = dimensions.height + "px";
+  element.style.position = "fixed";
+  element.style.zIndex = 301;
+}
+
+function unfloat(element) {
+  element.style.width = "100%";
+  element.style.height = "100%";
+  element.style.position = "relative";
+  element.style.removeProperty("z-index");
 }
 
 (async function () {
   "use strict";
-  if (isMenuOpenOnLoad()) {
-    addMarkAsReadButton();
-  } else {
-    const clickHandler = async () => {
-      await addMarkAsReadButton();
-      removeEventListener("click", clickHandler);
-    };
-    addMenuButtonClickHandler(clickHandler);
-  }
+
+  let player = await getPlayer();
+  let isWindowScrolledDown = false;
+  let shouldFloat = isSmallerThanHalfOfScreenHeight(player);
+
+  addEventListener("resize", () => {
+    shouldFloat = isSmallerThanHalfOfScreenHeight(player);
+    if (isWindowScrolledDown && shouldFloat) {
+      float(player);
+    } else if (isWindowScrolledDown && !shouldFloat) {
+      unfloat(player);
+    }
+  });
+
+  addEventListener("scroll", () => {
+    if (!shouldFloat) {
+      return;
+    }
+
+    if (window.scrollY > SCROLL_TRESHOLD && !isWindowScrolledDown) {
+      isWindowScrolledDown = true;
+      float(player);
+    } else if (window.scrollY < SCROLL_TRESHOLD && isWindowScrolledDown) {
+      isWindowScrolledDown = false;
+      unfloat(player);
+    }
+  });
 })();
