@@ -13,6 +13,7 @@
 // ==/UserScript==
 
 const SCROLL_TRESHOLD = 10;
+// const MAX_FLOATING_PLAYER_HEIGHT = window.innerHeight / 2;
 
 function waitForIt(it) {
   return new Promise((resolve) => {
@@ -30,59 +31,54 @@ async function getPlayer() {
   return waitForIt(() => document.querySelector("ytd-player#ytd-player"));
 }
 
-function getDimensions(element) {
-  return {
-    width: element.clientWidth,
-    height: element.clientHeight,
-  };
+function float(player) {
+  const dimensions =
+    // player.clientHeight > MAX_FLOATING_PLAYER_HEIGHT
+    //   ? {
+    //       height: MAX_FLOATING_PLAYER_HEIGHT,
+    //       width:
+    //         (player.clientWidth / player.clientHeight) *
+    //         MAX_FLOATING_PLAYER_HEIGHT,
+    //     } :
+    { height: player.clientHeight, width: player.clientWidth };
+  player.style.height = dimensions.height + "px";
+  player.style.width = dimensions.width + "px";
+  player.style.position = "fixed";
+  player.style.zIndex = 301;
+  player.style.marginTop =
+    document.querySelector("ytd-masthead").clientHeight -
+    player.getBoundingClientRect().top +
+    "px";
 }
 
-function isSmallerThanHalfOfScreenHeight(element) {
-  return element.clientHeight < window.innerHeight / 2;
-}
-
-function float(element) {
-  const dimensions = getDimensions(element);
-  element.style.width = dimensions.width + "px";
-  element.style.height = dimensions.height + "px";
-  element.style.position = "fixed";
-  element.style.zIndex = 301;
-}
-
-function unfloat(element) {
-  element.style.width = "100%";
-  element.style.height = "100%";
-  element.style.position = "relative";
-  element.style.removeProperty("z-index");
+function unfloat(player) {
+  player.style.height = "100%";
+  player.style.width = "100%";
+  player.style.position = "relative";
+  player.style.removeProperty("z-index");
+  player.style.removeProperty("margin-top");
 }
 
 (async function () {
   "use strict";
 
-  let player = await getPlayer();
+  const player = await getPlayer();
   let isWindowScrolledDown = false;
-  let shouldFloat = isSmallerThanHalfOfScreenHeight(player);
 
-  addEventListener("resize", () => {
-    shouldFloat = isSmallerThanHalfOfScreenHeight(player);
-    if (isWindowScrolledDown && shouldFloat) {
-      float(player);
-    } else if (isWindowScrolledDown && !shouldFloat) {
-      unfloat(player);
-    }
-  });
+  const evaluateFloat = () =>
+    isWindowScrolledDown ? float(player) : unfloat(player);
+  evaluateFloat();
 
   addEventListener("scroll", () => {
-    if (!shouldFloat) {
+    const isWindowScrolledDownNow = window.scrollY > SCROLL_TRESHOLD;
+    const didWindowScrolledDownChange =
+      isWindowScrolledDown !== isWindowScrolledDownNow;
+    isWindowScrolledDown = isWindowScrolledDownNow;
+
+    if (!didWindowScrolledDownChange) {
       return;
     }
 
-    if (window.scrollY > SCROLL_TRESHOLD && !isWindowScrolledDown) {
-      isWindowScrolledDown = true;
-      float(player);
-    } else if (window.scrollY < SCROLL_TRESHOLD && isWindowScrolledDown) {
-      isWindowScrolledDown = false;
-      unfloat(player);
-    }
+    evaluateFloat();
   });
 })();
